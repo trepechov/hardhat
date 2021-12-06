@@ -21,13 +21,13 @@ describe("USElection contract", function () {
         const californiaSubmitted = await hardhatUSElection.resultsSubmitted("California");
         expect(californiaSubmitted).to.equal(true);
 
-        // FAILUER: Try to summit result with equal amount of votes
+        // FAILURE: Try to summit result with equal amount of votes
         await hardhatUSElection.submitStateResult(["Texas", 1000000, 1000000, 12]).should.be.rejected;
 
-        // FAILUER: Try to summit result with 0 seats
+        // FAILURE: Try to summit result with 0 seats
         await hardhatUSElection.submitStateResult(["Texas", 5259126, 5890347, 0]).should.be.rejected;
 
-        // FAILUER: Try to summit again submitted state
+        // FAILURE: Try to summit again submitted state
         await hardhatUSElection.submitStateResult(["California", 11110250, 6006429, 40]).should.be.rejected;
     })
 
