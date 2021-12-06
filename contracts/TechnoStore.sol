@@ -5,49 +5,79 @@ import "./Ownable.sol";
 
 contract TechnoStore is Ownable {
 
-    struct StoreProduct { // Should I use struct for products or can be id->name map
+    struct StoreProduct {
         uint id;
         string name;
+        uint stock;
     }
 
+    uint[] public availableProducts;
     mapping(uint => StoreProduct) public productList;
-    mapping(uint => uint) public productStock;
-    mapping(uint => mapping(address => bool)) public productPurchases; //Is it a good idea to store the purchase time instead of the true/false value here
+    mapping(uint => mapping(address => uint)) public productPurchases;
+    mapping(uint => address[]) public productsEverPurchased;
 
-    function addProduct(StoreProduct calldata product, uint quantity) public onlyOwner {
-        // require(productList[product.id] == 0, "Product already exists");
-        productList[product.id] = product;
-        productStock[product.id] = quantity;
+    modifier productExists(uint productId) {
+        require(productList[productId].id != 0, "Product doesn't exist");
+        _;
     }
 
-    // Should I have updateProduct function to update the stock or this could be implemented
-    // function updateProduct(uint productId, uint quantity) public onlyOwner {
-    //     //require(!productList[productId], "Product does't exist");
-    //     productStock[productId] = quantity;
-    // }
+    constructor() {
+        // Add some products to store
+        StoreProduct memory product1 = StoreProduct(1001, "MacBook Pro", 1);
+        addProduct(product1);
+        StoreProduct memory product2 = StoreProduct(1002, "iPad Pro", 5);
+        addProduct(product2);
+    }
 
-    function buyProduct(uint productId) public {
-        require(!productPurchases[productId][msg.sender], "Address already owns this product");
-        require(productStock[productId] > 0, "Product is out of stock");
+    function getAvailableProducts() public view returns(uint[] memory) {
+        return availableProducts;
+    }
 
-        // TODO add block number to purchas and validation
-        productPurchases[productId][msg.sender] = true;
-        productStock[productId] -= 1;
+    function getBuyers(uint productId) public view returns(address[] memory){
+        return productsEverPurchased[productId];
+    }
+
+    function addProduct(StoreProduct memory product) public onlyOwner  {
+        require(product.stock > 0, "Product stock should be greater than 0");
+        require(productList[product.id].id == 0, "Product already exists");
+
+        productList[product.id] = product;
+        availableProducts.push(product.id);
+    }
+
+    function addStock(uint productId, uint stockAmount) public onlyOwner productExists(productId) {
+        require(stockAmount > 0, "Product stock should be greater than 0");
+        productList[productId].stock += stockAmount;
+        if (productList[productId].stock == stockAmount) {
+            availableProducts.push(productId);
+        }
+    }
+
+    function removeStock(uint productId) private {
+        productList[productId].stock -= 1;
+        if (productList[productId].stock == 0) {
+            for (uint i = 0; i < availableProducts.length; i++) {
+                if (availableProducts[i] == productId) {
+                    delete availableProducts[i];
+                }
+            }
+        }
+    }
+
+    function buyProduct(uint productId) public productExists(productId) {
+        require(productPurchases[productId][msg.sender] == 0, "Address already owns this product");
+        require(productList[productId].stock > 0, "Product is out of stock");
+
+        productPurchases[productId][msg.sender] = block.number;
+        removeStock(productId);
+        productsEverPurchased[productId].push(msg.sender);
     }
 
     function returnProduct(uint productId) public {
-        require(productPurchases[productId][msg.sender], "Address doesn't own this product");
-        //require(block.number - productPurchases[productId][msg.sender] > 100, "Sorry but it's too late to return this product");
+        require(productPurchases[productId][msg.sender] != 0, "Address doesn't own this product");
+        require(block.number - productPurchases[productId][msg.sender] < 100, "Sorry but it's too late to return this product");
 
-        productStock[productId] += 1;
-        productPurchases[productId][msg.sender] = false;
+        addStock(productId, 1);
+        delete productPurchases[productId][msg.sender];
     }
-
-    // function getProducts() public view returns () {
-    // How should be structured the result
-    // }
-
-    // function getBuyersOfProduct(uint productId) public {
-    // How should be structured the result
-    // }
 }
